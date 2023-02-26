@@ -41,21 +41,34 @@ def add_date_range(values, start_date):
 def fees_report(infile, outfile):
     """Calculates late fees per patron id and writes a summary report to
     outfile."""
+    # create dictionary to store fees for each patron
     fees = {}
+
+    # read input CSV file
     with open(infile, newline='') as csvfile:
         reader = csv.DictReader(csvfile)
         for row in reader:
-            due_date = datetime.strptime(row['date_due'], '%m/%d/%Y')
-            return_date = datetime.strptime(row['date_returned'], '%m/%d/%Y')
-            if return_date > due_date:
-                days_late = (return_date - due_date).days
-                late_fee = days_late * 0.25
-                fees[row['patron_id']] = fees.get(row['patron_id'], 0) + late_fee
+            # calculate late fee for this book return
+            date_returned = datetime.strptime(row['date_returned'], '%m/%d/%Y')
+            date_due = datetime.strptime(row['date_due'], '%m/%d/%Y')
+            days_late = (date_returned - date_due).days
+            late_fee = max(days_late, 0) * 0.25
+
+            # add late fee to patron's account
+            patron_id = row['patron_id']
+            fees[patron_id] = fees.get(patron_id, 0) + late_fee
+
+    # write output CSV file
     with open(outfile, 'w', newline='') as csvfile:
-        writer = csv.writer(csvfile)
-        writer.writerow(['patron_id', 'late_fees'])
-        for patron_id, fee in fees.items():
-            writer.writerow([patron_id, round(fee, 2)])
+        fieldnames = ['patron_id', 'late_fees']
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+
+        writer.writeheader()
+
+        # write fees for all patrons (including those with 0.00 fee)
+        for patron_id in sorted(fees.keys()):
+            writer.writerow({'patron_id': patron_id, 'late_fees': '{:.2f}'.format(fees[patron_id])})
+
 
 
 
@@ -73,8 +86,8 @@ if __name__ == '__main__':
     except ImportError:
         from util import get_data_file_path
 
-    #BOOK_RETURNS_PATH = get_data_file_path('book_returns.csv')
-    BOOK_RETURNS_PATH = get_data_file_path('book_returns_short.csv')
+    BOOK_RETURNS_PATH = get_data_file_path('book_returns.csv')
+    #BOOK_RETURNS_PATH = get_data_file_path('book_returns_short.csv')
 
     OUTFILE = 'book_fees.csv'
 
